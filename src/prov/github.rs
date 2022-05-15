@@ -36,12 +36,16 @@ impl GithubBackup {
         Ok(())
     }
 
+     // TODO: maybe add retries with exponential backoff?
     async fn list_repos(
         &self,
         user: &str,
-    ) -> Result<GithubListReposResponse, Box<dyn std::error::Error>> {
+    ) -> Result<RepoList, Box<dyn std::error::Error>> {
         let url = Url::parse(&format!("{}?q=user:{}", LIST_URL, user))?;
-        let res = self.client.get(url).send().await?;
+        let res = self.client.get(url)
+            .send().await?
+            .error_for_status()?;
+
         let body_text = res.text().await?;
         serde_json::from_str(&body_text).map_err(|x| x.into())
     }
@@ -70,7 +74,7 @@ struct GithubRepo {
 }
 
 #[derive(Debug, Deserialize)]
-struct GithubListReposResponse {
+struct RepoList {
     items: Vec<GithubRepo>,
     // total_count: usize,
     // incomplete_results: bool,
