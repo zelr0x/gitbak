@@ -3,6 +3,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use git2::{build::RepoBuilder, Cred, Repository};
+
+use crate::Auth;
+
 pub struct BackupCfg {
     /// A use whose repositories to backup.
     pub(crate) user: String,
@@ -31,9 +35,33 @@ impl BackupCfg {
     }
 }
 
-pub(crate) fn clone_recurse<P>(clone_url: &str, destination: P)
+pub(crate) fn clone_recurse<P>(clone_url: &str, destination: P, user: &str, auth: &Option<Auth>)
 where
     P: AsRef<Path>,
 {
-    let _ = git2::Repository::clone_recurse(clone_url, destination);
+    let _ = auth.as_ref().map_or_else(
+        || Repository::clone_recurse(clone_url, &destination),
+        |auth| auth_clone_recurse(clone_url, &destination, user, auth),
+    );
+}
+
+fn auth_clone_recurse<P>(
+    clone_url: &str,
+    destination: P,
+    user: &str,
+    auth: &Auth,
+) -> Result<Repository, git2::Error>
+where
+    P: AsRef<Path>,
+{
+    let mut callbacks = git2::RemoteCallbacks::new();
+    callbacks.credentials(|_url, username_from_url, _allowed_types| match auth {
+        Auth::BearerToken(tok) => Cred::userpass_plaintext(username_from_url.unwrap_or(user), tok),
+    });
+
+    let mut opts = git2::FetchOptions::new();
+    opts.remote_callbacks(callbacks);
+    let mut builder = RepoBuilder::new();
+    builder.fetch_options(opts);
+    builder.clone(clone_url, destination.as_ref())
 }

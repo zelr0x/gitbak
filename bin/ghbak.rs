@@ -36,9 +36,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let only_names = args.include.as_ref().map(|xs| to_set(&xs));
     let exclude_names = args.exclude.as_ref().map(|xs| to_set(&xs));
     let cfg = BackupCfg::new(user, dest, only_names, exclude_names);
-    let bak = args.token.as_ref().map_or_else(
+    let bak = args.token.as_mut().map_or_else(
         || GithubBackup::pub_only().unwrap(),
-        |tok| GithubBackup::new(Auth::BearerToken(tok)).unwrap(),
+        |tok| GithubBackup::new(Auth::BearerToken(Box::new(std::mem::take(tok)))).unwrap(),
     );
     bak.backup(&cfg).await
 }

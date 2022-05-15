@@ -1,3 +1,6 @@
-pub enum Auth<'a> {
-    BearerToken(&'a str),
+use zeroize::{Zeroize, ZeroizeOnDrop};
+
+#[derive(Zeroize, ZeroizeOnDrop)]
+pub enum Auth {
+    BearerToken(Box<String>),
 }

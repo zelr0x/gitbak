@@ -6,6 +6,7 @@ static LIST_URL: &str = "https://api.github.com/search/repositories";
 
 pub struct GithubBackup {
     client: Client,
+    auth: Option<Auth>,
 }
 
 impl GithubBackup {
@@ -13,12 +14,15 @@ impl GithubBackup {
         let client = http::http_client_builder()
             .default_headers(http::default_headers(&auth))
             .build()?;
-        Ok(GithubBackup { client })
+        Ok(GithubBackup {
+            client,
+            auth: Some(auth),
+        })
     }
 
     pub fn pub_only() -> reqwest::Result<GithubBackup> {
         let client = http::http_client_builder().build()?;
-        Ok(GithubBackup { client })
+        Ok(GithubBackup { client, auth: None })
     }
 
     // TODO: handle paging (incomplete_results field or page+per_page params)
@@ -31,20 +35,15 @@ impl GithubBackup {
         for repo in selected {
             let dest = &cfg.dest.join(&repo.name);
             println!("Cloning {} (id={}) to {:?}", &repo.name, &repo.id, &dest);
-            clone_recurse(&repo.clone_url, &dest)
+            clone_recurse(&repo.clone_url, &dest, &cfg.user, &self.auth)
         }
         Ok(())
     }
 
-     // TODO: maybe add retries with exponential backoff?
-    async fn list_repos(
-        &self,
-        user: &str,
-    ) -> Result<RepoList, Box<dyn std::error::Error>> {
+    // TODO: maybe add retries with exponential backoff?
+    async fn list_repos(&self, user: &str) -> Result<RepoList, Box<dyn std::error::Error>> {
         let url = Url::parse(&format!("{}?q=user:{}", LIST_URL, user))?;
-        let res = self.client.get(url)
-            .send().await?
-            .error_for_status()?;
+        let res = self.client.get(url).send().await?.error_for_status()?;
 
         let body_text = res.text().await?;
         serde_json::from_str(&body_text).map_err(|x| x.into())
