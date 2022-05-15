@@ -8,11 +8,10 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 #[clap(name = "GH Backup")]
 #[derive(Zeroize, ZeroizeOnDrop)]
 struct Args {
-    /// A use whose repositories to backup.
-    #[clap(short, long)]
+    /// A user whose repositories to backup.
     user: String,
     /// A path to the directory used to store the backup data.
-    #[clap(short, long, parse(from_os_str))]
+    #[clap(parse(from_os_str))]
     #[zeroize(skip)]
     dest: PathBuf,
     /// Github auth token.
@@ -29,7 +28,6 @@ struct Args {
     exclude: Option<Vec<String>>,
 }
 
-// TODO: make user and destination positional
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = Args::parse();
@@ -45,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     bak.backup(&cfg).await
 }
 
-// TODO: improve?
+#[inline]
 fn to_set(s: &Vec<String>) -> HashSet<String> {
     s.iter().map(|x| x.trim().into()).collect()
 }
